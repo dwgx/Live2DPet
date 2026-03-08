@@ -1,6 +1,6 @@
 # Live2DPet — AI デスクトップペット
 
-**[English](README.en.md)** | **日本語** | **[中文](README.md)**
+**[中文（Default）](README.md)** | **[English](README.en.md)** | **日本語** | **[Global Quick Start](QUICK_START_GLOBAL.md)**
 
 ![GitHub stars](https://img.shields.io/github/stars/x380kkm/Live2DPet) ![License](https://img.shields.io/github/license/x380kkm/Live2DPet) ![Downloads](https://img.shields.io/github/downloads/x380kkm/Live2DPet/total) ![Last Commit](https://img.shields.io/github/last-commit/x380kkm/Live2DPet)
 
@@ -9,6 +9,14 @@
 Electron ベースのデスクトップペット。Live2D キャラクターがデスクトップに常駐し、スクリーンショットとウィンドウ認識であなたの作業内容を理解、AI がコンパニオン対話を生成、クリック/ドラッグ/タッチなどのインタラクションに対応、キーフレーム視覚メモリで AI が最近のアクティビティを把握、VOICEVOX で音声合成を行います。
 
 > **プライバシーに関する注意**: 本アプリは定期的にスクリーンショットを撮影し、設定された AI API に送信して分析します。スクリーンショットはディスクに保存されません。ご利用の API プロバイダーを信頼できることを確認し、画面上の機密情報にご注意ください。
+
+## かんたん開始ガイド（まず動かす）
+
+1. 一番かんたん: Releases から `Live2DPet.exe` をダウンロードして実行。
+2. ソース実行: `npm install` のあと `node launch.js`。
+3. 設定画面で API を入力: `base_url` / `api_key` / `model`。
+4. Live2D モデル（または画像モデル）を選んで「ペットを起動」。
+5. 他言語は上部リンク、または [Global Quick Start](QUICK_START_GLOBAL.md) を参照。
 
 <p align="center">
   <img src="assets/app-icon.png" width="128" alt="Live2DPet Icon">
