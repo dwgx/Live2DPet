@@ -1,6 +1,6 @@
 # Live2DPet Enhanced — AI 桌面宠物增强版
 
-**[English](README.en.md)** | **中文**
+**中文（默认）** | **[English](README.en.md)** | **[日本語](README.ja.md)** | **[Global Quick Start](QUICK_START_GLOBAL.md)**
 
 ![GitHub stars](https://img.shields.io/github/stars/dwgx/Live2DPet-Enhanced) ![License](https://img.shields.io/github/license/dwgx/Live2DPet-Enhanced) ![Last Commit](https://img.shields.io/github/last-commit/dwgx/Live2DPet-Enhanced)
 
@@ -14,6 +14,14 @@
 - 支持关键帧视觉记忆和本地记忆系统
 
 > 性能与 Agent 化调优建议见：[AGENT_COMPANION_TUNING.md](AGENT_COMPANION_TUNING.md)
+
+## 白话文快速指导（先跑起来）
+
+1. 先下载发布版：去 Releases 拿 `Live2DPet.exe`，双击就能用。  
+2. 要源码运行：在项目目录执行 `npm install` 然后 `node launch.js`。  
+3. 首次打开先填 API：`base_url`、`api_key`、`model`。  
+4. 选一个 Live2D 模型或图片模型，点「启动宠物」。  
+5. 想看其他语言，直接点顶部语言导航，或打开 [Global Quick Start](QUICK_START_GLOBAL.md)。
 
 ## 使用前先看（隐私）
 

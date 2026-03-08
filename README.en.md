@@ -1,6 +1,6 @@
 # Live2DPet — AI Desktop Pet Companion
 
-**English** | **[日本語](README.ja.md)** | **[中文](README.md)**
+**[中文（Default）](README.md)** | **English** | **[日本語](README.ja.md)** | **[Global Quick Start](QUICK_START_GLOBAL.md)**
 
 ![GitHub stars](https://img.shields.io/github/stars/x380kkm/Live2DPet) ![License](https://img.shields.io/github/license/x380kkm/Live2DPet) ![Downloads](https://img.shields.io/github/downloads/x380kkm/Live2DPet/total) ![Last Commit](https://img.shields.io/github/last-commit/x380kkm/Live2DPet)
 
@@ -9,6 +9,14 @@
 An Electron-based desktop pet. A Live2D character stays on your desktop, understands what you're doing through screenshots and window awareness, generates companionship dialogue through AI, supports click/drag/touch interactions, uses keyframe visual memory so the AI can review your recent activity, and speaks with VOICEVOX text-to-speech.
 
 > **Privacy Notice**: This app periodically captures screenshots and sends them to your configured AI API for analysis. Screenshots are never saved to disk. Make sure you trust your API provider and be mindful of sensitive information displayed on screen.
+
+## Plain Quick Guide (Get Running First)
+
+1. Easiest: download `Live2DPet.exe` from Releases and run it.
+2. From source: run `npm install`, then `node launch.js`.
+3. In Settings, fill API config: `base_url`, `api_key`, `model`.
+4. Select a Live2D model (or image model) and click "Launch Pet".
+5. Need other languages? Use the top links or [Global Quick Start](QUICK_START_GLOBAL.md).
 
 <p align="center">
   <img src="assets/app-icon.png" width="128" alt="Live2DPet Icon">
