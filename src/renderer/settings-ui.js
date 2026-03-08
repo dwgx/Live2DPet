@@ -25,6 +25,7 @@ let voiceAnalyser = null;
 let voiceVolumeMonitor = null;
 let voiceSelectedDeviceId = null;
 let voiceAvailableDevices = [];
+let voiceWhisperVadCleanup = null;
 
 // ========== i18n System ==========
 let currentLang = 'en';
@@ -295,6 +296,80 @@ function stopVoiceVolumeMonitor() {
     if (textEl) textEl.textContent = '0%';
 }
 
+function stopWhisperAutoStopVAD() {
+    if (voiceWhisperVadCleanup) {
+        try { voiceWhisperVadCleanup(); } catch (e) {}
+        voiceWhisperVadCleanup = null;
+    }
+}
+
+function startWhisperAutoStopVAD(stream, stopRecorder) {
+    stopWhisperAutoStopVAD();
+    if (!stream || typeof stopRecorder !== 'function') return;
+
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return;
+
+    let audioCtx = null;
+    let analyser = null;
+    let source = null;
+    let rafId = null;
+    const startedAt = Date.now();
+    let speechDetected = false;
+    let lastSpeechAt = startedAt;
+    const minCaptureMs = 900;
+    const silenceStopMs = 900;
+    const rmsThreshold = 0.012;
+
+    try {
+        audioCtx = new AudioContextCtor();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.35;
+        source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyser);
+    } catch (e) {
+        console.warn('[Voice] Whisper VAD init failed:', e.message || e);
+        try { if (source) source.disconnect(); } catch {}
+        try { if (audioCtx && audioCtx.state !== 'closed') audioCtx.close(); } catch {}
+        return;
+    }
+
+    const buffer = new Uint8Array(analyser.fftSize);
+    const tick = () => {
+        analyser.getByteTimeDomainData(buffer);
+        let sumSquares = 0;
+        for (let i = 0; i < buffer.length; i++) {
+            const centered = (buffer[i] - 128) / 128;
+            sumSquares += centered * centered;
+        }
+        const rms = Math.sqrt(sumSquares / buffer.length);
+
+        const now = Date.now();
+        if (rms > rmsThreshold) {
+            speechDetected = true;
+            lastSpeechAt = now;
+        }
+
+        if (speechDetected && (now - startedAt) >= minCaptureMs && (now - lastSpeechAt) >= silenceStopMs) {
+            stopRecorder();
+            return;
+        }
+
+        rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    voiceWhisperVadCleanup = () => {
+        if (rafId != null) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        try { if (source) source.disconnect(); } catch {}
+        try { if (audioCtx && audioCtx.state !== 'closed') audioCtx.close(); } catch {}
+    };
+}
+
 function startVoiceVolumeMonitor(stream) {
     stopVoiceVolumeMonitor();
     const meterEl = document.getElementById('voice-volume-meter');
@@ -395,6 +470,7 @@ function mapVoiceSendError(error) {
     if (error === 'pet_not_started') return t('voice.err.pet');
     if (error === 'busy') return t('voice.err.busy');
     if (error === 'empty') return t('voice.err.empty');
+    if (error === 'duplicate_input') return 'Duplicate input ignored';
     return t('status.failed') + error;
 }
 
@@ -639,6 +715,7 @@ function stopAPISTTRecording() {
         voiceRecorder.stop();
         showStatus('voice-status', t('voice.stopped'), 'info');
     }
+    stopWhisperAutoStopVAD();
     stopVoiceVolumeMonitor();
 }
 
@@ -678,6 +755,11 @@ async function startWhisperSTTRecording(language) {
             voiceListening = true;
             updateVoiceButtons();
             showStatus('voice-status', 'Recording for Whisper...', 'info');
+            startWhisperAutoStopVAD(voiceRecorderStream, () => {
+                if (voiceRecorder && voiceRecorder.state === 'recording') {
+                    voiceRecorder.stop();
+                }
+            });
         };
 
         voiceRecorder.ondataavailable = (event) => {
@@ -688,6 +770,7 @@ async function startWhisperSTTRecording(language) {
             voiceListening = false;
             clearVoiceRecordTimer();
             stopVoiceRecorderTracks();
+            stopWhisperAutoStopVAD();
             updateVoiceButtons();
             showStatus('voice-status', t('status.failed') + (event?.error?.name || 'recorder'), 'error');
         };
@@ -696,6 +779,7 @@ async function startWhisperSTTRecording(language) {
             voiceListening = false;
             clearVoiceRecordTimer();
             stopVoiceRecorderTracks();
+            stopWhisperAutoStopVAD();
             updateVoiceButtons();
 
             const mimeType = voiceRecorder?.mimeType || 'audio/webm';
@@ -714,15 +798,17 @@ async function startWhisperSTTRecording(language) {
             }
         };
 
-        voiceRecorder.start();
+        voiceRecorder.start(160);
+        const maxRecordMs = shouldEnableAutoLoop() ? 5200 : 6800;
         voiceRecordTimer = setTimeout(() => {
             if (voiceRecorder && voiceRecorder.state === 'recording') voiceRecorder.stop();
-        }, 8000);
+        }, maxRecordMs);
         return true;
     } catch (e) {
         voiceListening = false;
         clearVoiceRecordTimer();
         stopVoiceRecorderTracks();
+        stopWhisperAutoStopVAD();
         updateVoiceButtons();
         if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
             showStatus('voice-status', t('voice.err.permission'), 'error');
@@ -747,22 +833,33 @@ async function transcribeWithWhisper(blob, language) {
     try {
         const arrayBuffer = await blob.arrayBuffer();
         const base64Audio = arrayBufferToBase64(arrayBuffer);
+        const hwThreads = Number(navigator.hardwareConcurrency) || 4;
+        const whisperThreads = Math.max(2, Math.min(8, hwThreads - 1));
 
         const result = await window.electronAPI.whisperSttTranscribe({
             audioData: base64Audio,
             language: language || 'auto',
             model: document.getElementById('whisper-model')?.value || 'small',
             mimeType: blob.type,
-            useGpu: true
+            useGpu: true,
+            lowLatency: true,
+            threads: whisperThreads
         });
 
         if (!result?.success || !result.text) {
+            if (result?.error === 'noise_text' || result?.error === 'no_speech') {
+                showStatus('voice-status', t('voice.err.noSpeech'), 'info');
+                return { success: false, error: 'no_speech' };
+            }
             showStatus('voice-status', 'Whisper failed: ' + (result?.error || 'unknown'), 'error');
             return { success: false, error: result?.error || 'whisper_failed' };
         }
 
         const transcriptEl = document.getElementById('voice-transcript');
         if (transcriptEl) transcriptEl.value = result.text.trim();
+        if (result?.latencyMs) {
+            showStatus('voice-status', `Whisper OK (${result.latencyMs}ms)`, 'success');
+        }
         return await sendVoiceTextToAI(result.text, { fromRecognition: true });
     } catch (e) {
         const err = e.message || String(e);

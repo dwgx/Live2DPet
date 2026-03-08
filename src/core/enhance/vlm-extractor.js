@@ -2,13 +2,25 @@
  * VLM Extractor — Compressed situation buffer via vision LLM
  *
  * Architecture:
- *   Independent capture: own 3s timer → electronAPI.getScreenCapture()
+ *   Independent capture: own 5s timer → electronAPI.getScreenCapture()
  *   Mipmap ring buffer: 3 levels with cascading downsample
- *     L0 (2 entries, full res) → L1 (2 entries, 50%) → L2 (1 entry, 25%)
+ *     L0 (1 entry, full 512px) → L1 (1 entry, 256px) → L2 (1 entry, 128px)
  *   Short-term: situationMap { title → { situation, timestamp, focusSec } }
  *     - Top-K entries (K=10), LRU eviction
  *   Promotion: focusSec > threshold → persist to LongTermPool
  *   Situation history: recent situations for continuity reference
+ *
+ * Keyframe Buffer (Mid-term Visual Memory):
+ *   - Candidate sampling: every N capture ticks (default 5 = 25s at 5s tick)
+ *   - LLM selection: every 2 minutes, picks representative frames
+ *   - Age-based downsampling: 512px → 256px → 128px as frames age
+ *   - Auto-eviction: frames older than 10 minutes
+ *
+ * Algorithm Optimizations:
+ *   - Mipmap cascade: O(1) per level, reduces memory and token cost
+ *   - Keyframe selection: batch processing, 256px thumbnails for selection
+ *   - Age-based downsampling: progressive quality reduction saves tokens
+ *   - Noise title filtering: early rejection of system windows
  */
 class VLMExtractor {
     constructor(shortPool, longPool, aiClient) {
@@ -377,7 +389,22 @@ class VLMExtractor {
 
     /**
      * LLM keyframe selection — picks representative frames from candidates.
-     * Candidates are sent at 256px to save tokens.
+     * Algorithm:
+     * 1. Downsample candidates to 256px (save tokens for selection call)
+     * 2. Send all candidates with metadata (time, title) to LLM
+     * 3. LLM returns JSON array of indices [0, 3, 7]
+     * 4. Add selected frames (full resolution) to keyframe buffer
+     * 5. Clear used candidates
+     *
+     * Prompt engineering:
+     * - Ask for "diverse, representative" frames
+     * - Provide temporal context (timestamp, window title)
+     * - Request JSON array output for easy parsing
+     *
+     * Error handling:
+     * - Fallback regex parsing if JSON parse fails
+     * - Validate indices (0 <= i < candidates.length)
+     * - Continue on error (non-blocking)
      */
     async _maybeSelectKeyframes() {
         if (this._selectingKf) return;
@@ -390,7 +417,7 @@ class VLMExtractor {
                 candidates.push({ ...c, base64Small: small });
             }
 
-            // Build selection messages
+            // Build selection messages with temporal context
             const userContent = [];
             for (let i = 0; i < candidates.length; i++) {
                 const c = candidates[i];
@@ -434,6 +461,15 @@ class VLMExtractor {
         }
     }
 
+    /**
+     * Parse keyframe indices from LLM response.
+     * Supports: JSON array [0, 3, 7] or text with embedded JSON.
+     * Validates: indices must be numbers in range [0, maxIdx)
+     *
+     * @param {string} text - LLM response
+     * @param {number} maxIdx - Max valid index (exclusive)
+     * @returns {number[]} Valid indices
+     */
     _parseKfIndices(text, maxIdx) {
         if (!text) return [];
         try {
@@ -442,6 +478,7 @@ class VLMExtractor {
                 return parsed.filter(i => typeof i === 'number' && i >= 0 && i < maxIdx);
             }
         } catch {}
+        // Fallback: extract JSON array from text
         const match = text.match(/\[[\s\S]*?\]/);
         if (match) {
             try {

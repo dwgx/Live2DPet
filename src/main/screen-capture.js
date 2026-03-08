@@ -9,6 +9,11 @@ function releaseSources(sources) {
     for (const s of sources) try { s.thumbnail = null; s.appIcon = null; } catch {}
 }
 
+const FAST_CAPTURE_SIZE = 512;
+const FAST_CAPTURE_JPEG = 30;
+const HQ_CAPTURE_SIZE = 640;   // Reduced from 768 to improve vision request latency.
+const HQ_CAPTURE_JPEG = 34;    // Slightly lower quality to reduce payload size.
+
 function registerScreenCapture(ctx, ipcMain, deps) {
     // deps: { desktopCapturer, powerMonitor }
     const { desktopCapturer, powerMonitor } = deps;
@@ -18,11 +23,11 @@ function registerScreenCapture(ctx, ipcMain, deps) {
         try {
             if (targetTitle) {
                 winSources = await desktopCapturer.getSources({
-                    types: ['window'], thumbnailSize: { width: 512, height: 512 }
+                    types: ['window'], thumbnailSize: { width: FAST_CAPTURE_SIZE, height: FAST_CAPTURE_SIZE }
                 });
                 const match = winSources.find(s => s.name === targetTitle);
                 if (match) {
-                    const result = match.thumbnail.toJPEG(30).toString('base64');
+                    const result = match.thumbnail.toJPEG(FAST_CAPTURE_JPEG).toString('base64');
                     releaseSources(winSources);
                     return result;
                 }
@@ -30,10 +35,10 @@ function registerScreenCapture(ctx, ipcMain, deps) {
                 winSources = null;
             }
             sources = await desktopCapturer.getSources({
-                types: ['screen'], thumbnailSize: { width: 512, height: 512 }
+                types: ['screen'], thumbnailSize: { width: FAST_CAPTURE_SIZE, height: FAST_CAPTURE_SIZE }
             });
             if (sources.length > 0) {
-                const result = sources[0].thumbnail.toJPEG(30).toString('base64');
+                const result = sources[0].thumbnail.toJPEG(FAST_CAPTURE_JPEG).toString('base64');
                 releaseSources(sources);
                 return result;
             }
@@ -52,11 +57,11 @@ function registerScreenCapture(ctx, ipcMain, deps) {
         try {
             if (targetTitle) {
                 winSources = await desktopCapturer.getSources({
-                    types: ['window'], thumbnailSize: { width: 768, height: 768 }
+                    types: ['window'], thumbnailSize: { width: HQ_CAPTURE_SIZE, height: HQ_CAPTURE_SIZE }
                 });
                 const match = winSources.find(s => s.name === targetTitle);
                 if (match) {
-                    const result = match.thumbnail.toJPEG(40).toString('base64');
+                    const result = match.thumbnail.toJPEG(HQ_CAPTURE_JPEG).toString('base64');
                     releaseSources(winSources);
                     return result;
                 }
@@ -64,10 +69,10 @@ function registerScreenCapture(ctx, ipcMain, deps) {
                 winSources = null;
             }
             sources = await desktopCapturer.getSources({
-                types: ['screen'], thumbnailSize: { width: 768, height: 768 }
+                types: ['screen'], thumbnailSize: { width: HQ_CAPTURE_SIZE, height: HQ_CAPTURE_SIZE }
             });
             if (sources.length > 0) {
-                const result = sources[0].thumbnail.toJPEG(40).toString('base64');
+                const result = sources[0].thumbnail.toJPEG(HQ_CAPTURE_JPEG).toString('base64');
                 releaseSources(sources);
                 return result;
             }

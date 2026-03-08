@@ -1,18 +1,61 @@
-# Live2DPet — AI 桌面宠物伴侣
+# Live2DPet Enhanced — AI 桌面宠物增强版
 
-**[English](README.en.md)** | **[日本語](README.ja.md)** | **中文**
+**[English](README.en.md)** | **中文**
 
-![GitHub stars](https://img.shields.io/github/stars/x380kkm/Live2DPet) ![License](https://img.shields.io/github/license/x380kkm/Live2DPet) ![Downloads](https://img.shields.io/github/downloads/x380kkm/Live2DPet/total) ![Last Commit](https://img.shields.io/github/last-commit/x380kkm/Live2DPet)
+![GitHub stars](https://img.shields.io/github/stars/dwgx/Live2DPet-Enhanced) ![License](https://img.shields.io/github/license/dwgx/Live2DPet-Enhanced) ![Last Commit](https://img.shields.io/github/last-commit/dwgx/Live2DPet-Enhanced)
 
-> 如果觉得有用，欢迎点个 [Star](https://github.com/x380kkm/Live2DPet) 支持一下 :)
+> 这是 [Live2DPet](https://github.com/x380kkm/Live2DPet) 的增强版，目标很直接：让桌宠更聪明、更稳定、更像一个能长期陪你的 AI 伙伴。
 
-基于 Electron 的桌面宠物。Live2D 角色常驻桌面，通过截屏和窗口感知理解你正在做什么，AI 大模型生成陪伴式对话，支持点击/拖拽等互动，关键帧视觉记忆让 AI 了解你的近期活动，VOICEVOX 语音合成实现语音输出。
+这个项目是一个基于 Electron 的桌面宠物应用。角色可以常驻桌面，结合截屏和活动窗口信息理解你正在做什么，再用大模型生成对话。你可以点击、拖拽、互动；也可以启用语音输入和语音播报。
 
-> **隐私提示**: 本应用会定时截取屏幕画面并发送至你配置的 AI API 进行分析，截图不会保存到本地磁盘。请确保你信任所使用的 API 服务商，并注意避免在屏幕上显示敏感信息。
+- 支持 Live2D 模型，也支持图片文件夹/GIF 作为角色
+- 支持本地 Whisper 语音识别（STT）
+- 支持 VOICEVOX 本地语音合成（TTS）
+- 支持关键帧视觉记忆和本地记忆系统
+
+> 性能与 Agent 化调优建议见：[AGENT_COMPANION_TUNING.md](AGENT_COMPANION_TUNING.md)
+
+## 使用前先看（隐私）
+
+本应用会按你的设置定时截屏，并把图像发给你配置的 AI API 做分析。
+
+- 截图默认不保存到本地磁盘
+- 但截图内容会经过第三方 API 服务
+- 如果屏幕上有敏感信息，请先关闭相关窗口或暂停功能
+
+请只在你信任的 API 服务商和网络环境下使用。
 
 <p align="center">
   <img src="assets/app-icon.png" width="128" alt="Live2DPet Icon">
 </p>
+
+## 你能得到什么（白话版）
+
+### 1. 更实用的记忆系统
+- 记忆持久化到本地文件，重启后不丢
+- 可调记忆容量、短期/长期检索数量
+- 自动保存，基本不用手动管
+- 能按相关性找回上下文，不容易“失忆”
+
+### 2. 更顺手的模型显示
+- Live2D 模型自动适配窗口大小
+- 模型自动垂直居中，观感更稳定
+- 仓库内提供了示例模型，可直接体验
+
+### 3. 多语言文本更完整
+- 中文、日文缺失翻译补齐
+- 语音输入、记忆相关文案更完整
+
+### 4. 本地 Whisper 语音识别
+- 支持本地 STT，不依赖云端转写
+- 支持 tiny/base/small/medium/large 多模型
+- 支持自动连续识别
+- 支持识别文本修复
+
+### 5. 代码与稳定性改进
+- 清理重复和无用代码
+- 加强错误处理
+- 做了一批性能优化
 
 ## 使用示例
 
@@ -48,78 +91,71 @@ Author：Cai Cat様
 
 ### 方式一：直接下载（推荐）
 
-从 [Releases](https://github.com/x380kkm/Live2DPet/releases) 下载 `Live2DPet.exe`，双击运行，无需安装。
+从 [Releases](https://github.com/dwgx/Live2DPet-Enhanced/releases) 下载 `Live2DPet.exe`，双击运行即可。
 
 ### 方式二：从源码运行
 
 ```bash
-git clone https://github.com/x380kkm/Live2DPet.git
-cd Live2DPet
+git clone https://github.com/dwgx/Live2DPet-Enhanced.git
+cd Live2DPet-Enhanced
 npm install
 node launch.js
 ```
 
-> VSCode 终端请用 `node launch.js`，不要用 `npx electron .`（ELECTRON_RUN_AS_NODE 冲突）。
+> VSCode 终端建议用 `node launch.js`，不要用 `npx electron .`（可能遇到 `ELECTRON_RUN_AS_NODE` 冲突）。
 
-## 使用指南
+## 第一次配置（建议按这个顺序）
 
 ### 1. 配置 API
 
-启动后打开设置面板，在「API 设置」标签页填入 API 地址、密钥和模型名称。本应用兼容所有 OpenAI 格式的 API 接口，可使用 OpenRouter 等聚合平台。
+启动后打开设置，在「API 设置」里填 API 地址、密钥和模型名称。
 
-推荐使用支持 Vision 的模型以获得截屏感知能力：
-- 性价比推荐：Grok 系列
-- 中端推荐：GPT-o3 / GPT-5.1
-- 高质量推荐：Gemini 3 Pro Preview
+- 兼容 OpenAI 格式接口
+- 可使用 OpenRouter 等聚合平台
+- 建议选支持 Vision 的模型，这样截屏理解效果更好
 
-翻译 API（用于 TTS 日语翻译）推荐：
+翻译 API（用于 TTS 日语翻译）可用：
 - OpenRouter `x-ai/grok-4-fast`
 
-### 2. 导入 Live2D 模型
+### 2. 导入模型
 
-在「模型」标签页点击「选择模型文件夹」，选择包含 `.model.json` 或 `.model3.json` 的目录。系统会自动：
-- 扫描模型参数并映射眼球/头部追踪
-- 扫描表情文件和动作组
-- 将模型复制到用户数据目录
+在「模型」标签页点击「选择模型文件夹」，选包含 `.model.json` 或 `.model3.json` 的目录。
 
-也支持使用图片文件夹作为角色形象，详见下方「图片模型」。
+程序会自动做这些事：
+- 扫描参数并映射眼球/头部追踪
+- 扫描表情和动作组
+- 复制模型到用户数据目录
 
-> 没有 Live2D 模型？可以从 [Live2D 官方示例](https://www.live2d.com/en/learn/sample/) 下载免费模型体验。
+没有模型可先试官方示例：
+[Live2D 官方示例](https://www.live2d.com/en/learn/sample/)
 
-### 3. 配置 VOICEVOX 语音合成（可选）
+### 3. 配置 VOICEVOX（可选）
 
-> 先到 [VOICEVOX 官网](https://voicevox.hiroshiba.jp/) 试听角色和风格，找到喜欢的再下载对应模型。
+1. 在「TTS」页安装 VOICEVOX 组件（Core + ONNX Runtime + Open JTalk 辞书）
+2. 下载并选择 VVM 语音模型
+3. 点击「保存并重启」
+4. 选择角色（Speaker）、风格（Style）并微调参数
 
-1. 在「TTS」标签页安装 VOICEVOX 组件（Core + ONNX Runtime + Open JTalk 辞書）
-2. 选择并下载 VVM 语音模型
-3. 点击「保存并重启」按钮，等待应用重启加载模型
-4. 设置角色（Speaker）、风格（Style）及其他语音参数微调
-
-支持 GPU 加速（DirectML）。AI 回复会自动翻译为日语并语音播放。
+支持 DirectML（GPU）加速。启用后，AI 回复可自动翻译成日语并播报。
 
 <details>
-<summary>手动安装 VOICEVOX 组件</summary>
+<summary>VOICEVOX 手动安装（应用内安装失败时使用）</summary>
 
-如果应用内一键安装失败，可以手动下载并放置文件。
-
-**安装位置**: `C:\Users\你的用户名\AppData\Roaming\live2dpet\voicevox_core`
-
-> 将「你的用户名」替换为你的 Windows 用户名。
-
-**下载链接**:
+安装目录：
+`C:\Users\你的用户名\AppData\Roaming\live2dpet\voicevox_core`
 
 | 组件 | 必须 | 下载链接 |
 |------|------|----------|
 | VOICEVOX Core | 是 | [voicevox_core-windows-x64-0.16.3.zip](https://github.com/VOICEVOX/voicevox_core/releases/download/0.16.3/voicevox_core-windows-x64-0.16.3.zip) |
 | ONNX Runtime (CPU) | 是 | [voicevox_onnxruntime-win-x64-1.17.3.tgz](https://github.com/VOICEVOX/onnxruntime-builder/releases/download/voicevox_onnxruntime-1.17.3/voicevox_onnxruntime-win-x64-1.17.3.tgz) |
 | ONNX Runtime (GPU) | 否 | [voicevox_onnxruntime-win-x64-dml-1.17.3.tgz](https://github.com/VOICEVOX/onnxruntime-builder/releases/download/voicevox_onnxruntime-1.17.3/voicevox_onnxruntime-win-x64-dml-1.17.3.tgz) |
-| Open JTalk 辞書 | 是 | [open_jtalk_dic_utf_8-1.11.tar.gz](https://sourceforge.net/projects/open-jtalk/files/Dictionary/open_jtalk_dic-1.11/open_jtalk_dic_utf_8-1.11.tar.gz/download) |
+| Open JTalk 辞书 | 是 | [open_jtalk_dic_utf_8-1.11.tar.gz](https://sourceforge.net/projects/open-jtalk/files/Dictionary/open_jtalk_dic-1.11/open_jtalk_dic_utf_8-1.11.tar.gz/download) |
 | 默认语音模型 | 是 | [0.vvm](https://github.com/VOICEVOX/voicevox_vvm/releases/download/0.16.3/0.vvm) |
-| 其他语音模型 | 否 | [vvm](https://github.com/VOICEVOX/voicevox_vvm/releases/)|
+| 其他语音模型 | 否 | [vvm](https://github.com/VOICEVOX/voicevox_vvm/releases/) |
 
-**解压后的目录结构**:
+参考目录结构：
 
-```
+```text
 voicevox_core/
 ├── c_api/
 │   └── voicevox_core-windows-x64-0.16.3/
@@ -136,87 +172,104 @@ voicevox_core/
     └── ...
 ```
 
-将下载的文件解压到上述对应位置，`.vvm` 文件放入 `models/` 文件夹，然后重启应用即可。
+把对应文件解压到对应目录，`.vvm` 放到 `models/` 后重启应用。
 
 </details>
 
-### 4. 自定义角色人设
+### 4. 配置语音输入（可选）
 
-在「角色」标签页新增角色卡，编辑角色的名称、性格、行为规则等。支持模板变量 `{{petName}}`、`{{userIdentity}}`。
+在「语音输入」里：
+- 选择 Whisper 本地识别
+- 设置识别语言（中/英/日等）
+- 选择模型大小
+- 可开启自动连续识别
+- 可开启识别文本修复
 
-### 5. 启动宠物
+### 5. 配置记忆系统（可选）
 
-在设置界面底部点击「启动宠物」，角色会以透明窗口出现在桌面右下角。
-- 拖拽角色可移动位置
-- 角色眼睛会跟随鼠标（Live2D 模式）
-- AI 会定时截屏并通过气泡对话
+在「记忆」里可以调：
+- 是否启用记忆
+- 最大记忆数
+- 短期/长期检索数量
+- 自动保存
+- 是否包含相关记忆
 
-### 图片模型
+### 6. 自定义角色人设
 
-除 Live2D 外，还可以使用图片文件夹作为角色形象：
+在「角色」页可新增角色卡，配置名称、性格、行为规则。
+支持模板变量：`{{petName}}`、`{{userIdentity}}`。
 
-1. 在「模型」标签页选择类型为「图片文件夹」，选择包含 PNG/JPG/WebP 图片的文件夹
-2. 为每张图片标记用途：待机、说话、表情（可多选）
-3. 表情图片需填写表情名，AI 情绪系统会自动匹配
-4. 可通过裁剪缩放滑块调整显示比例
+### 7. 启动桌宠
 
-AI 说话时自动切换到「说话」图片，触发情绪时切换到对应表情图片，空闲时显示「待机」图片。
+在设置页底部点「启动宠物」，角色会出现在桌面右下角。
 
-## 功能特性
+- 可拖拽移动
+- Live2D 眼睛会跟随鼠标
+- AI 会按设定节奏主动对话
 
-- **Live2D 桌面角色** — 透明无边框窗口，始终置顶，眼睛跟随鼠标
-- **图片模型** — 支持图片文件夹作为角色，按待机/说话/表情分类，AI 驱动自动切换
-- **AI 视觉感知** — 定时截屏 + 活动窗口检测，AI 根据屏幕内容主动对话
-- **互动系统** — 点击/触摸/拖拽/划过/缩放，互动事件注入 AI 上下文
-- **关键帧视觉记忆** — 自动采样截图，VLM 挑选代表性关键帧，AI 可回顾近期活动
-- **VOICEVOX 语音** — 本地日语 TTS，自动翻译，一键安装
-- **情绪系统** — AI 驱动表情/动作选择，情绪累积触发
-- **音频状态机** — TTS → 默认音声 → 静音，三模式自动降级
-- **模型热导入** — 任意 Live2D 模型，参数自动映射，表情/动作自动扫描
-- **角色人设** — JSON 模板定义角色性格和行为规则，支持多角色切换
+## 图片模型说明
 
-> **已弃置**: 智能增强文本管线（自动搜索、知识整理、知识获取、活动记忆、VLM 情景提取）已在 v2.0 中暂停使用，代码骨架保留。
+不想用 Live2D，也可以用图片文件夹：
+
+1. 在「模型」里选择类型为「图片文件夹」
+2. 选择包含 PNG/JPG/WebP 的目录
+3. 给每张图标记用途：待机、说话、表情
+4. 表情图填写表情名，供 AI 情绪系统匹配
+5. 用裁剪缩放滑块调整显示比例
+
+运行时会自动切图：说话切“说话图”，有情绪切“表情图”，空闲切“待机图”。
+
+## 功能总览
+
+- Live2D 桌面角色（透明无边框、置顶、眼睛跟随）
+- 图片模型（待机/说话/表情自动切换）
+- AI 视觉感知（定时截屏 + 活动窗口）
+- 互动系统（点击/触摸/拖拽/划过/缩放）
+- 关键帧视觉记忆（自动采样 + 代表帧选择）
+- 增强记忆系统（本地持久化 + 检索）
+- Whisper 本地语音识别
+- VOICEVOX 本地语音合成
+- 情绪系统与动作触发
+- 音频状态机（TTS -> 默认音声 -> 静音自动降级）
+- 模型热导入（参数自动映射、表情动作自动扫描）
+- 多角色卡与人设模板
+
+> 已弃置：智能增强文本管线（自动搜索、知识整理、知识获取、活动记忆、VLM 情景提取）在 v2.0 暂停使用，代码骨架保留。
 
 <details>
-<summary>项目架构</summary>
+<summary>项目架构（简版）</summary>
 
-```
+```text
 Electron Main Process
 ├── main.js                 应用生命周期编排，模块注册
-├── src/main/               主进程模块（拆分自 main.js）
-│   ├── app-context.js      共享可变状态
-│   ├── config-manager.js   配置持久化 / 迁移 / 加密
-│   ├── crypto-utils.js     AES-256-GCM API 密钥加密
-│   ├── validators.js       输入验证（UUID / URL / 路径遍历）
-│   ├── window-manager.js   窗口创建 / 控制 / 气泡
-│   ├── character-manager.js 角色卡 CRUD / 导入导出
-│   ├── tts-ipc.js          TTS 合成 / VOICEVOX 安装
-│   ├── model-import.js     模型扫描 / 参数映射
-│   └── ...                 emotion / enhance / screen / tray / i18n
+├── src/main/               主进程模块
+│   ├── app-context.js
+│   ├── config-manager.js
+│   ├── crypto-utils.js
+│   ├── validators.js
+│   ├── window-manager.js
+│   ├── character-manager.js
+│   ├── tts-ipc.js
+│   └── model-import.js
 ├── src/core/
-│   ├── tts-service.js      VOICEVOX Core FFI (koffi)
-│   ├── translation-service.js  中→日 LLM 翻译 + LRU 缓存
-│   └── enhance/            增强子系统
-│       ├── enhancement-orchestrator.js  调度: 关键帧视觉记忆
-│       ├── vlm-extractor.js    截图采集 / Mipmap / 关键帧挑选
-│       ├── context-pool.js     短期池 + 长期池 (Jaccard RAG) [弃置]
-│       ├── knowledge-store.js  LLM 知识整理 [弃置]
-│       ├── knowledge-acquisition.js  自动知识获取 [弃置]
-│       ├── search-service.js   Web 搜索 IPC [弃置]
-│       └── memory-tracker.js   活动记忆追踪 [弃置]
+│   ├── tts-service.js
+│   ├── translation-service.js
+│   └── enhance/
+│       ├── enhancement-orchestrator.js
+│       └── vlm-extractor.js
 
 Renderer (3 windows)
-├── Settings Window         index.html + settings-ui.js
-├── Pet Window              desktop-pet.html + model-adapter.js
-└── Chat Bubble             pet-chat-bubble.html
+├── Settings Window
+├── Pet Window
+└── Chat Bubble
 
 Core Modules (renderer)
-├── desktop-pet-system.js   调度: 截屏 / AI 请求 / 音频准备
-├── message-session.js      协调: 文字 + 表情 + 音频同步播放
-├── emotion-system.js       情绪累积 + AI 表情选择 + 动作触发
-├── audio-state-machine.js  三模式降级状态机
-├── ai-chat.js              OpenAI 兼容 API 客户端
-└── prompt-builder.js       System Prompt 构建 (模板变量替换)
+├── desktop-pet-system.js
+├── message-session.js
+├── emotion-system.js
+├── audio-state-machine.js
+├── ai-chat.js
+└── prompt-builder.js
 ```
 
 </details>
@@ -225,9 +278,9 @@ Core Modules (renderer)
 <summary>环境要求</summary>
 
 - Windows 10/11
-- Node.js >= 18（从源码运行时）
+- Node.js >= 18（源码运行时）
 - OpenAI 兼容 API Key
-- VOICEVOX Core（可选，用于语音合成）
+- VOICEVOX Core（可选）
 
 </details>
 
@@ -242,24 +295,25 @@ npm test
 
 ## 注意事项
 
-- **隐私**: 截屏数据仅发送给你配置的 API，不存储到磁盘
-- **API 费用**: 视觉模型调用会产生费用，合理设置检测间隔
-- **VOICEVOX**: 使用语音时需标注 "VOICEVOX:キャラ名"
+- 隐私：截屏会发给你配置的 API，不会落盘
+- 成本：视觉模型调用会产生费用，建议调大检测间隔
+- 语音：使用 VOICEVOX 时请按协议标注 `VOICEVOX:キャラ名`
 
 ## 问题排查
 
-遇到问题时，请打开命令提示符（cmd），通过以下命令启动程序以开启控制台日志：
+如遇问题，建议在命令提示符（cmd）里带日志参数启动：
 
 ```bash
 "你的文件夹地址\Live2DPet.exe" --enable-logging 2>&1
 ```
 
-请记录出现问题时的日志输出，提交 Issue 时附上相关信息。
+复现问题后，把关键日志附在 Issue 里。
 
 ### 已知问题
 
-- 关于截屏错误的 warning 请忽视，不影响正常使用
-- VVM 语音模型读取错误：前往 `C:\Users\你的用户名\AppData\Roaming\live2dpet\voicevox_core`，找到存放模型的文件夹，删除损坏的文件后重新下载
+- 偶发截屏 warning 可忽略，不影响主要功能
+- VVM 模型读取错误：
+  到 `C:\Users\你的用户名\AppData\Roaming\live2dpet\voicevox_core` 删除损坏模型后重新下载
 
 <details>
 <summary>技术栈</summary>
@@ -273,17 +327,27 @@ npm test
 
 ## 更新日志
 
-详见 [CHANGELOG.md](CHANGELOG.md)。
+见 [CHANGELOG.md](CHANGELOG.md)。
+
+## 原项目与致谢
+
+本项目基于 [x380kkm/Live2DPet](https://github.com/x380kkm/Live2DPet) 增强开发。
+
+感谢原作者 [@x380kkm](https://github.com/x380kkm) 的工作。
 
 ## License
 
-MIT — 详见 [LICENSE](LICENSE)。
+MIT，见 [LICENSE](LICENSE)。
 
 ## 征集
 
-- **Live2D 模型**: 由于版权原因本库不提供默认模型，欢迎提供可供分发的 Live2D 模型
-- **应用图标**: 当前图标为开发者头像占位，欢迎设计投稿
-- **内置角色卡**: 欢迎提交有趣的角色卡！内置角色卡需提供中/英/日三语版本。提交时需修改 `assets/prompts/<uuid>.json`（含 `i18n` 字段）和 `src/main/character-manager.js` 中的 `ensureDefaultCharacters()`。格式参考现有内置卡
+- Live2D 模型：欢迎提交可合法分发的模型
+- 应用图标：当前图标为开发者头像占位，欢迎投稿
+- 内置角色卡：欢迎提交中/英/日三语版本
+
+提交内置角色卡时请同步修改：
+- `assets/prompts/<uuid>.json`（含 `i18n` 字段）
+- `src/main/character-manager.js` 中 `ensureDefaultCharacters()`
 
 <details>
 <summary>内置角色卡列表</summary>
@@ -296,20 +360,10 @@ MIT — 详见 [LICENSE](LICENSE)。
 
 </details>
 
-## 贡献者
+## 贡献
 
-<a href="https://github.com/x380kkm/Live2DPet/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=x380kkm/Live2DPet" />
-</a>
-
-## 赞助者
-
-完整列表见 [SPONSORS.md](SPONSORS.md)。
-
-| 赞助者 |
-|--------|
-| 柠檬 |
+欢迎提交 Issue 和 Pull Request。
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=x380kkm/Live2DPet&type=Date)](https://star-history.com/#x380kkm/Live2DPet&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=dwgx/Live2DPet-Enhanced&type=Date)](https://star-history.com/#dwgx/Live2DPet-Enhanced&Date)

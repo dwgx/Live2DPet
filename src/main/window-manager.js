@@ -235,6 +235,100 @@ function registerWindowHandlers(ctx, ipcMain, deps) {
         }
     });
 
+    // ========== Quick Input Window ==========
+
+    ipcMain.handle('show-quick-input', async () => {
+        try {
+            if (ctx.quickInputWindow && !ctx.quickInputWindow.isDestroyed()) {
+                ctx.quickInputWindow.focus();
+                return { success: true };
+            }
+
+            ctx.quickInputWindow = new deps.BrowserWindow({
+                width: 280,
+                height: 100,
+                frame: false,
+                transparent: true,
+                alwaysOnTop: true,
+                resizable: false,
+                minimizable: false,
+                maximizable: false,
+                fullscreenable: false,
+                skipTaskbar: true,
+                webPreferences: {
+                    nodeIntegration: false,
+                    contextIsolation: true,
+                    preload: deps.path.join(deps.basePath, 'preload.js')
+                }
+            });
+
+            ctx.quickInputWindow.setAlwaysOnTop(true, 'screen-saver');
+            ctx.quickInputWindow.loadFile(deps.path.join(deps.basePath, 'quick-input.html'));
+            applyCSP(ctx.quickInputWindow);
+
+            // Position near pet window or center of screen
+            if (ctx.petWindow && !ctx.petWindow.isDestroyed()) {
+                const petBounds = ctx.petWindow.getBounds();
+                ctx.quickInputWindow.setPosition(
+                    petBounds.x + petBounds.width + 10,
+                    petBounds.y
+                );
+            } else {
+                const { screen } = require('electron');
+                const primaryDisplay = screen.getPrimaryDisplay();
+                const { width, height } = primaryDisplay.workAreaSize;
+                ctx.quickInputWindow.setPosition(
+                    Math.round((width - 280) / 2),
+                    Math.round((height - 100) / 2)
+                );
+            }
+
+            ctx.quickInputWindow.on('closed', () => { ctx.quickInputWindow = null; });
+
+            // Remove auto-close on blur to support pinned mode
+            // Window will close itself when not pinned
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('close-quick-input', async () => {
+        try {
+            if (ctx.quickInputWindow && !ctx.quickInputWindow.isDestroyed()) {
+                ctx.quickInputWindow.close();
+            }
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('send-quick-message', async (event, text) => {
+        try {
+            // Send message to desktop pet system
+            if (ctx.petWindow && !ctx.petWindow.isDestroyed()) {
+                ctx.petWindow.webContents.send('quick-message-received', text);
+            }
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('trigger-memory-save', async () => {
+        try {
+            // Trigger memory save in pet window
+            if (ctx.petWindow && !ctx.petWindow.isDestroyed()) {
+                ctx.petWindow.webContents.send('trigger-memory-save');
+            }
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
     return { createSettingsWindow };
 }
 

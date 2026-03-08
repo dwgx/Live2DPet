@@ -43,6 +43,7 @@ function getDefaultConfig() {
         emotionFrequency: 30,
         enabledEmotions: [],
         maxTokensMultiplier: 1.0,
+        visionMaxTokens: 1200,
         voiceInput: { mode: 'api-stt', lang: 'en-US', autoContinuous: false, textRepair: true, deviceId: '', whisperModel: 'small' },
         memory: {
             enabled: true,
@@ -50,7 +51,9 @@ function getDefaultConfig() {
             shortTermLimit: 8,
             longTermRetrievalLimit: 3,
             autoSave: true,
-            includeRelevant: true
+            includeRelevant: true,
+            saveDebounceMs: 1500,
+            minSaveIntervalMs: 3000
         },
         speechToText: {
             baseURL: 'https://api.openai.com/v1',
@@ -127,6 +130,7 @@ function createConfigManager(app, options = {}) {
                 ...defaults,
                 ...raw,
                 voiceInput: { ...(defaults.voiceInput || {}), ...(raw.voiceInput || {}) },
+                memory: { ...(defaults.memory || {}), ...(raw.memory || {}) },
                 speechToText: { ...(defaults.speechToText || {}), ...(raw.speechToText || {}) },
                 model: { ...defaults.model, ...(raw.model || {}), paramMapping: { ...defaults.model.paramMapping, ...((raw.model || {}).paramMapping || {}) } },
                 bubble: { ...defaults.bubble, ...(raw.bubble || {}) },
@@ -164,6 +168,7 @@ function createConfigManager(app, options = {}) {
             if (data.tts) merged.tts = { ...(existing.tts || {}), ...data.tts };
             if (data.translation) merged.translation = { ...(existing.translation || {}), ...data.translation };
             if (data.voiceInput) merged.voiceInput = { ...(existing.voiceInput || {}), ...data.voiceInput };
+            if (data.memory) merged.memory = { ...(existing.memory || {}), ...data.memory };
             if (data.speechToText) merged.speechToText = { ...(existing.speechToText || {}), ...data.speechToText };
             if (data.enhance) {
                 merged.enhance = { ...(existing.enhance || {}), ...data.enhance };

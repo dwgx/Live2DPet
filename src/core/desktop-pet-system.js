@@ -36,6 +36,8 @@ class DesktopPetSystem {
         this.pendingMessage = null;   // next message to play (overwritten by newer)
         this.isPlayingMessage = false; // lock: currently playing a session
         this.chatGapMs = 5000;        // minimum gap between two message sessions
+        this.pendingUserInput = null; // keep latest user message when AI is busy
+        this.lastUserInput = { text: '', timestamp: 0 };
 
         // Enhancement orchestrator
         this.enhancer = null;
@@ -44,6 +46,10 @@ class DesktopPetSystem {
         // Hit interaction buffer
         this._hitBuffer = [];     // [{area, timestamp, description}]
         this._hitCount = 0;       // session total
+
+        // Vision dedupe state (avoid sending near-identical screenshots repeatedly).
+        this._lastVisionSignature = '';
+        this._lastVisionSignatureAt = 0;
     }
 
     async init() {
@@ -157,6 +163,17 @@ class DesktopPetSystem {
         this.stopCurrentAudio();
         this.emotionSystem.stop();
         if (this.enhancer) await this.enhancer.stop();
+        if (this.memorySystem) {
+            try {
+                if (typeof this.memorySystem.flushPendingSave === 'function') {
+                    await this.memorySystem.flushPendingSave();
+                } else if (typeof this.memorySystem.saveToStorage === 'function') {
+                    await this.memorySystem.saveToStorage();
+                }
+            } catch (e) {
+                console.warn('[DesktopPetSystem] Memory flush on stop failed:', e?.message || e);
+            }
+        }
         try {
             await window.electronAPI.closePetWindow();
         } catch (e) {}
@@ -596,6 +613,25 @@ class DesktopPetSystem {
         return (Date.now() - entry.timestamp) <= maxAgeMs;
     }
 
+    _buildVisionSignature(base64) {
+        if (!base64 || typeof base64 !== 'string') return '';
+        const len = base64.length;
+        if (len < 96) return base64;
+        return `${len}:${base64.slice(0, 48)}:${base64.slice(Math.floor(len / 2), Math.floor(len / 2) + 32)}:${base64.slice(-48)}`;
+    }
+
+    _shouldAttachFreshScreenshot(base64, dedupeMs = 12000) {
+        const sig = this._buildVisionSignature(base64);
+        if (!sig) return false;
+        const now = Date.now();
+        if (sig === this._lastVisionSignature && (now - this._lastVisionSignatureAt) < dedupeMs) {
+            return false;
+        }
+        this._lastVisionSignature = sig;
+        this._lastVisionSignatureAt = now;
+        return true;
+    }
+
     async _processQueue() {
         if (this.isPlayingMessage) return;
         this.isPlayingMessage = true;
@@ -645,7 +681,17 @@ class DesktopPetSystem {
         if (!text) return { success: false, error: 'empty' };
         if (!this.aiClient?.isConfigured()) return { success: false, error: 'api_not_configured' };
         if (!this.isActive) return { success: false, error: 'pet_not_started' };
-        if (this.isRequesting) return { success: false, error: 'busy' };
+
+        if (this.isRequesting) {
+            this.pendingUserInput = text;
+            return { success: true, queued: true };
+        }
+
+        const nowMs = Date.now();
+        if (this.lastUserInput.text === text && (nowMs - this.lastUserInput.timestamp) < 2500) {
+            return { success: false, error: 'duplicate_input' };
+        }
+        this.lastUserInput = { text, timestamp: nowMs };
 
         this.isRequesting = true;
         try {
@@ -706,6 +752,15 @@ class DesktopPetSystem {
             return { success: false, error: error.message || String(error) };
         } finally {
             this.isRequesting = false;
+            if (this.pendingUserInput) {
+                const nextInput = this.pendingUserInput;
+                this.pendingUserInput = null;
+                setTimeout(() => {
+                    this.sendUserMessage(nextInput).catch(e => {
+                        console.warn('[DesktopPetSystem] Queued user message failed:', e?.message || e);
+                    });
+                }, 80);
+            }
         }
     }
 
@@ -786,25 +841,32 @@ class DesktopPetSystem {
 
             // Gather screenshots: HQ fresh capture + one older from mipmap
             const screenshots = [];
-            const maxScreenshots = 2;
+            const maxScreenshots = 1;
             if (window.electronAPI?.getScreenCaptureHQ) {
                 try {
                     const fresh = await window.electronAPI.getScreenCaptureHQ(appName);
-                    if (fresh) screenshots.push({ base64: fresh, timestamp: Date.now() });
+                    if (fresh && this._shouldAttachFreshScreenshot(fresh)) {
+                        screenshots.push({ base64: fresh, timestamp: Date.now() });
+                    }
                 } catch (e) {}
             }
             if (!screenshots.length && window.electronAPI?.getScreenCapture) {
                 try {
                     const fresh = await window.electronAPI.getScreenCapture();
-                    if (fresh) screenshots.push({ base64: fresh, timestamp: Date.now() });
+                    if (fresh && this._shouldAttachFreshScreenshot(fresh)) {
+                        screenshots.push({ base64: fresh, timestamp: Date.now() });
+                    }
                 } catch (e) {}
             }
             if (this.enhancer?.vlmExtractor) {
                 const older = this.enhancer.vlmExtractor.getScreenshotsForMainAI(2);
+                const screenshotSigs = new Set(screenshots.map(s => this._buildVisionSignature(s.base64)));
                 for (const entry of older) {
                     if (!this._isRecentScreenshot(entry)) continue;
-                    if (screenshots.some(s => s.base64 === entry.base64)) continue;
+                    const sig = this._buildVisionSignature(entry.base64);
+                    if (!sig || screenshotSigs.has(sig)) continue;
                     if (screenshots.length < maxScreenshots) screenshots.push(entry);
+                    screenshotSigs.add(sig);
                 }
             }
 
@@ -815,7 +877,7 @@ class DesktopPetSystem {
 
             // Keyframe context (mid-term visual memory)
             if (this.enhancer?.vlmExtractor) {
-                const keyframes = await this.enhancer.vlmExtractor.getKeyframesForMainAI(2);
+                const keyframes = await this.enhancer.vlmExtractor.getKeyframesForMainAI(1);
                 if (keyframes.length > 0) {
                     const now = Date.now();
                     const kfContent = [{ type: 'text', text: this._t('sys.kfLabel') }];
