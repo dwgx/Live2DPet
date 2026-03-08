@@ -448,35 +448,34 @@ describe('KnowledgeStore', () => {
 // ========== Test: EnhancementOrchestrator ==========
 
 describe('EnhancementOrchestrator', () => {
-    let EnhancementOrchestrator, ShortTermPool, LongTermPool, MemoryTracker, SearchService, KnowledgeStore, VLMExtractor;
+    let EnhancementOrchestrator, ShortTermPool, LongTermPool, VLMExtractor;
 
     beforeEach(() => {
         loadEnhanceModules('context-pool.js', 'enhance-utils.js', 'memory-tracker.js', 'search-service.js', 'knowledge-store.js', 'vlm-extractor.js', 'enhancement-orchestrator.js');
         ShortTermPool = global.window.ShortTermPool;
         LongTermPool = global.window.LongTermPool;
-        MemoryTracker = global.window.MemoryTracker;
-        SearchService = global.window.SearchService;
-        KnowledgeStore = global.window.KnowledgeStore;
         VLMExtractor = global.window.VLMExtractor;
         EnhancementOrchestrator = global.window.EnhancementOrchestrator;
     });
 
-    it('should instantiate with all sub-modules', () => {
+    it('should instantiate with keyframe-only modules', () => {
         const eo = new EnhancementOrchestrator(null);
         assert.ok(eo.shortPool instanceof ShortTermPool);
         assert.ok(eo.longPool instanceof LongTermPool);
-        assert.ok(eo.memoryTracker instanceof MemoryTracker);
-        assert.ok(eo.searchService instanceof SearchService);
-        assert.ok(eo.knowledgeStore instanceof KnowledgeStore);
         assert.ok(eo.vlmExtractor instanceof VLMExtractor);
+        assert.strictEqual(eo.memoryTracker, undefined);
+        assert.strictEqual(eo.searchService, undefined);
+        assert.strictEqual(eo.knowledgeStore, undefined);
     });
 
-    it('onFocusTick delegates to memoryTracker', () => {
+    it('init enables vlm extractor and starts capture', async () => {
         const eo = new EnhancementOrchestrator(null);
-        eo.onFocusTick('Chrome');
-        eo.onFocusTick('Chrome');
-        const counts = eo.memoryTracker.getSessionCounts();
-        assert.strictEqual(counts['Chrome'], 2);
+        let started = false;
+        eo.vlmExtractor.startCapture = () => { started = true; };
+        eo.vlmExtractor.enabled = false;
+        await eo.init();
+        assert.strictEqual(eo.vlmExtractor.enabled, true);
+        assert.strictEqual(started, true);
     });
 
     it('isNoiseTitle filters noise', () => {
@@ -499,175 +498,24 @@ describe('EnhancementOrchestrator', () => {
         assert.strictEqual(sanitizeSecrets('a'.repeat(19)), 'a'.repeat(19));
     });
 
-    it('_shouldSearch returns false when search disabled', () => {
+    it('beforeRequest returns empty context in keyframe-only mode', async () => {
         const eo = new EnhancementOrchestrator(null);
-        eo.searchService.enabled = false;
-        assert.strictEqual(eo._shouldSearch('React'), false);
-    });
-
-    it('_shouldSearch returns false for noise titles', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.searchService.enabled = true;
-        assert.strictEqual(eo._shouldSearch('New Tab'), false);
-    });
-
-    it('_shouldSearch returns false when focus time too low', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.searchService.enabled = true;
-        eo._minFocusSeconds = 10;
-        // No focus data in short pool
-        assert.strictEqual(eo._shouldSearch('React Tutorial'), false);
-    });
-
-    it('_shouldSearch returns true when all conditions met', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.searchService.enabled = true;
-        eo._minFocusSeconds = 5;
-        eo._maxSearchFrequencyMs = 0;
-        eo.shortPool.set('memory.today', { 'React Tutorial': 15 });
-        assert.strictEqual(eo._shouldSearch('React Tutorial'), true);
-    });
-
-    it('_shouldSearch returns false for IDE titles', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.searchService.enabled = true;
-        eo._minFocusSeconds = 0;
-        eo._maxSearchFrequencyMs = 0;
-        eo.shortPool.set('memory.today', { 'live2dpet - Cursor': 100 });
-        assert.strictEqual(eo._shouldSearch('live2dpet - Cursor'), false);
-    });
-
-    it('_isIDETitle detects various IDE suffixes', () => {
-        const eo = new EnhancementOrchestrator(null);
-        assert.strictEqual(eo._isIDETitle('live2dpet - Cursor'), true);
-        assert.strictEqual(eo._isIDETitle('project - VS Code'), true);
-        assert.strictEqual(eo._isIDETitle('app - IntelliJ'), true);
-        assert.strictEqual(eo._isIDETitle('React Tutorial'), false);
-        assert.strictEqual(eo._isIDETitle('Cursor Settings'), false);
-    });
-
-    it('_shouldSearch respects per-title cooldown', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.searchService.enabled = true;
-        eo._minFocusSeconds = 0;
-        eo._maxSearchFrequencyMs = 0;
-        eo.shortPool.set('memory.today', { 'React Tutorial': 100 });
-        // First search should be allowed
-        assert.strictEqual(eo._shouldSearch('React Tutorial'), true);
-        // Mark as recently searched
-        eo._searchedTitles['React Tutorial'] = Date.now();
-        // Should be blocked by per-title cooldown
-        assert.strictEqual(eo._shouldSearch('React Tutorial'), false);
-        // Different title should still be allowed
-        eo.shortPool.set('memory.today', { 'React Tutorial': 100, 'Vue Guide': 50 });
-        assert.strictEqual(eo._shouldSearch('Vue Guide'), true);
-    });
-
-    it('_shouldSearch respects failure cooldown', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.searchService.enabled = true;
-        eo._minFocusSeconds = 0;
-        eo._maxSearchFrequencyMs = 0;
-        eo.shortPool.set('memory.today', { 'React Tutorial': 100 });
-        // Simulate failure cooldown
-        eo._searchFailCooldownMs = 60000;
-        eo._lastSearchTime = Date.now();
-        assert.strictEqual(eo._shouldSearch('React Tutorial'), false);
-        // After cooldown expires
-        eo._lastSearchTime = Date.now() - 61000;
-        assert.strictEqual(eo._shouldSearch('React Tutorial'), true);
-    });
-
-    it('buildEnhancedContext returns empty when no data', () => {
-        const eo = new EnhancementOrchestrator(null);
-        const ctx = eo.buildEnhancedContext('test');
+        const ctx = await eo.beforeRequest('React Tutorial');
         assert.strictEqual(ctx, '');
     });
 
-    it('buildEnhancedContext uses dynamic label for age <= 30s', () => {
+    it('stop delegates to vlmExtractor.stopCapture', async () => {
         const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['React Tutorial'] = {
-            situation: 'User is reading React hooks documentation',
-            timestamp: Date.now() - 15000,
-            focusSec: 30
-        };
-        const ctx = eo.buildEnhancedContext('React Tutorial');
-        assert.ok(ctx.includes('Screen Content'));
-        assert.ok(ctx.includes('React hooks documentation'));
-        assert.ok(ctx.includes('15'));
-    });
-
-    it('buildEnhancedContext uses background label for age > 30s', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['React Tutorial'] = {
-            situation: 'User is reading React hooks documentation',
-            timestamp: Date.now() - 120000,
-            focusSec: 30
-        };
-        const ctx = eo.buildEnhancedContext('React Tutorial');
-        assert.ok(ctx.includes('Background Info'));
-        assert.ok(!ctx.includes('Screen Content'));
-    });
-
-    it('buildEnhancedContext returns empty for UNCHANGED situation', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['Test'] = {
-            situation: 'UNCHANGED', timestamp: Date.now(), focusSec: 20
-        };
-        const ctx = eo.buildEnhancedContext('Test');
-        assert.strictEqual(ctx, '');
-    });
-
-    it('buildEnhancedContext appends situation history', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['Current'] = {
-            situation: 'Current activity', timestamp: Date.now() - 5000, focusSec: 30
-        };
-        eo.vlmExtractor._situationHistory = [
-            { situation: 'Previous activity', timestamp: Date.now() - 60000, title: 'OldApp' }
-        ];
-        const ctx = eo.buildEnhancedContext('Current');
-        assert.ok(ctx.includes('Recent context'));
-        assert.ok(ctx.includes('Previous activity'));
-    });
-
-    it('buildEnhancedContext deduplicates history against current', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['Current'] = {
-            situation: 'Same text', timestamp: Date.now() - 5000, focusSec: 30
-        };
-        eo.vlmExtractor._situationHistory = [
-            { situation: 'Same text', timestamp: Date.now() - 60000, title: 'OldApp' }
-        ];
-        const ctx = eo.buildEnhancedContext('Current');
-        assert.ok(!ctx.includes('Recent context'));
-    });
-
-    it('buildEnhancedContext falls back to most recent when low focus', () => {
-        const eo = new EnhancementOrchestrator(null);
-        // No situation for 'Notification', but VSCode has one
-        eo.vlmExtractor.situationMap['VSCode'] = {
-            situation: 'User is editing main.js',
-            timestamp: Date.now() - 5000,
-            focusSec: 60
-        };
-        // 'Notification' has 0 focus and no situation → should fall back
-        const ctx = eo.buildEnhancedContext('Notification');
-        assert.ok(ctx.includes('editing main.js'));
-    });
-
-    it('buildEnhancedContext returns empty when no VLM situation', () => {
-        const eo = new EnhancementOrchestrator(null);
-        const ctx = eo.buildEnhancedContext('unknown title');
-        assert.strictEqual(ctx, '');
-    });
-
-    it('stop flushes and cleans up', async () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.memoryTracker.recordFocus('test');
+        let stopped = false;
+        eo.vlmExtractor.stopCapture = () => { stopped = true; };
         await eo.stop();
-        // After stop, session counts should be flushed
-        assert.deepStrictEqual(eo.memoryTracker.getSessionCounts(), {});
+        assert.strictEqual(stopped, true);
+    });
+
+    it('reloadConfig is a safe no-op', async () => {
+        const eo = new EnhancementOrchestrator(null);
+        await eo.reloadConfig();
+        assert.ok(true);
     });
 });
 
@@ -787,7 +635,8 @@ describe('VLMExtractor', () => {
         vlm.situationMap['Test'] = { situation: 'Previous context here', timestamp: Date.now() - 60000, focusSec: 20 };
         await vlm.maybeExtract('Test', 'base64data', '');
         const userContent = capturedMessages[1].content[0].text;
-        assert.ok(userContent.includes('Previous (AI-generated, may contain errors): Previous context here'));
+        assert.ok(userContent.includes('Window: Test'));
+        assert.ok(!userContent.includes('Previous context here'));
     });
 
     it('getSituation returns from short-term map', () => {
@@ -900,22 +749,15 @@ describe('VLMExtractor', () => {
     it('pushScreenshot cascades overflow from L0 to L1 to L2', async () => {
         const vlm = new VLMExtractor(new ShortTermPool(), new LongTermPool(), null);
         vlm.startCapture();
-        // L0 maxSize=2, push 3 → overflow 1 to L1
+        // Current design: each mipmap level keeps only 1 entry.
         await vlm.pushScreenshot('img1', 'T1');
         await vlm.pushScreenshot('img2', 'T2');
         await vlm.pushScreenshot('img3', 'T3');
-        assert.strictEqual(vlm._mipmapLevels[0].entries.length, 2);
-        assert.strictEqual(vlm._mipmapLevels[1].entries.length, 1);
-        // Push 2 more → L0 overflows again, L1 now has 2
         await vlm.pushScreenshot('img4', 'T4');
-        await vlm.pushScreenshot('img5', 'T5');
-        assert.strictEqual(vlm._mipmapLevels[0].entries.length, 2);
-        assert.strictEqual(vlm._mipmapLevels[1].entries.length, 2);
-        // Push 2 more → L0 overflows, L1 overflows to L2
-        await vlm.pushScreenshot('img6', 'T6');
-        await vlm.pushScreenshot('img7', 'T7');
+        assert.strictEqual(vlm._mipmapLevels[0].entries.length, 1);
+        assert.strictEqual(vlm._mipmapLevels[1].entries.length, 1);
         assert.strictEqual(vlm._mipmapLevels[2].entries.length, 1);
-        assert.strictEqual(vlm.getBufferSize(), 5); // 2+2+1
+        assert.strictEqual(vlm.getBufferSize(), 3);
     });
 
     it('pushScreenshot does nothing when capture inactive', async () => {
@@ -1256,9 +1098,9 @@ describe('enhance-utils edge cases', () => {
     });
 });
 
-// ========== Test: _gatherLongTermContext ==========
+// ========== Test: Orchestrator Suspended Text Pipeline ==========
 
-describe('_gatherLongTermContext', () => {
+describe('Orchestrator suspended text pipeline', () => {
     let EnhancementOrchestrator;
 
     beforeEach(() => {
@@ -1267,126 +1109,17 @@ describe('_gatherLongTermContext', () => {
         EnhancementOrchestrator = global.window.EnhancementOrchestrator;
     });
 
-    it('returns empty string when no data exists', () => {
+    it('does not expose legacy gather method', () => {
         const eo = new EnhancementOrchestrator(null);
-        assert.strictEqual(eo._gatherLongTermContext('unknown title'), '');
+        assert.strictEqual(typeof eo._gatherLongTermContext, 'undefined');
     });
 
-    it('includes activity summary from short pool', () => {
+    it('beforeRequest remains empty even with pool data', async () => {
         const eo = new EnhancementOrchestrator(null);
         eo.shortPool.set('memory.today', { 'VSCode': 120, 'Chrome': 60 });
-        const ctx = eo._gatherLongTermContext('VSCode');
-        assert.ok(ctx.includes('Activity:'));
-        assert.ok(ctx.includes('120s'));
-    });
-
-    it('activity summary shows top 5 sorted by seconds', () => {
-        const eo = new EnhancementOrchestrator(null);
-        const data = {};
-        for (let i = 0; i < 8; i++) data[`App${i}`] = (i + 1) * 10;
-        eo.shortPool.set('memory.today', data);
-        const ctx = eo._gatherLongTermContext('App7');
-        // Should include top 5 (App7=80, App6=70, App5=60, App4=50, App3=40)
-        assert.ok(ctx.includes('80s'));
-        assert.ok(!ctx.includes('10s')); // App0=10 should be excluded
-    });
-
-    it('includes knowledge RAG hits', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.longPool.setForTitle('react hooks guide', 'knowledge', {
-            summary: 'React hooks allow state in functional components'
-        });
-        const ctx = eo._gatherLongTermContext('react hooks tutorial');
-        assert.ok(ctx.includes('Knowledge:'));
-        assert.ok(ctx.includes('React hooks'));
-    });
-
-    it('includes cached search results from short pool', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.shortPool.set('search.results', 'React is a JavaScript library for building UIs');
-        const ctx = eo._gatherLongTermContext('React Tutorial');
-        assert.ok(ctx.includes('Search:'));
-        assert.ok(ctx.includes('JavaScript library'));
-    });
-
-    it('falls back to long pool search when short pool empty', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.longPool.setForTitle('react tutorial', 'search', {
-            results: 'Cached: React documentation and guides', cachedAt: Date.now()
-        });
-        const ctx = eo._gatherLongTermContext('react tutorial');
-        assert.ok(ctx.includes('Search:'));
-        assert.ok(ctx.includes('Cached: React'));
-    });
-
-    it('includes acquired knowledge', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.longPool.setForTitle('react hooks', 'acquired', {
-            summary: 'useState and useEffect are the most common hooks',
-            confidence: 0.8
-        });
-        const ctx = eo._gatherLongTermContext('react hooks');
-        assert.ok(ctx.includes('Acquired:'));
-        assert.ok(ctx.includes('useState'));
-    });
-
-    it('combines all sections with newlines', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.shortPool.set('memory.today', { 'react tutorial': 100 });
-        eo.shortPool.set('search.results', 'React search results here');
         eo.longPool.setForTitle('react tutorial', 'knowledge', { summary: 'React knowledge' });
-        const ctx = eo._gatherLongTermContext('react tutorial');
-        const lines = ctx.split('\n');
-        assert.ok(lines.length >= 3); // Activity + Knowledge + Search
-    });
-
-    it('truncates knowledge hits to 500 chars', () => {
-        const eo = new EnhancementOrchestrator(null);
-        const longSummary = 'X'.repeat(600);
-        eo.longPool.setForTitle('test title', 'knowledge', { summary: longSummary });
-        const ctx = eo._gatherLongTermContext('test title');
-        const knowledgeLine = ctx.split('\n').find(l => l.startsWith('Knowledge:'));
-        assert.ok(knowledgeLine);
-        assert.ok(knowledgeLine.length <= 'Knowledge: '.length + 500 + 5);
-    });
-
-    it('truncates search results to 500 chars', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.shortPool.set('search.results', 'S'.repeat(700));
-        const ctx = eo._gatherLongTermContext('test');
-        const searchLine = ctx.split('\n').find(l => l.startsWith('Search:'));
-        assert.ok(searchLine);
-        assert.ok(searchLine.length <= 'Search: '.length + 500 + 5);
-    });
-
-    it('truncates acquired knowledge to 400 chars', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.longPool.setForTitle('test', 'acquired', {
-            summary: 'A'.repeat(500), confidence: 0.8
-        });
-        const ctx = eo._gatherLongTermContext('test');
-        const acquiredLine = ctx.split('\n').find(l => l.startsWith('Acquired:'));
-        assert.ok(acquiredLine);
-        assert.ok(acquiredLine.length <= 'Acquired: '.length + 400 + 5);
-    });
-
-    it('filters noise titles from activity summary', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.shortPool.set('memory.today', {
-            'VSCode': 100, 'New Tab': 50, '系统托盘溢出': 30, 'Chrome': 20
-        });
-        const ctx = eo._gatherLongTermContext('VSCode');
-        assert.ok(ctx.includes('Activity:'));
-        assert.ok(!ctx.includes('New Tab'));
-        assert.ok(!ctx.includes('系统托盘溢出'));
-        assert.ok(ctx.includes('100s'));
-    });
-
-    it('returns empty activity when all titles are noise', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.shortPool.set('memory.today', { 'New Tab': 50, 'Desktop': 30 });
-        const ctx = eo._gatherLongTermContext('test');
-        assert.ok(!ctx.includes('Activity:'));
+        const ctx = await eo.beforeRequest('VSCode');
+        assert.strictEqual(ctx, '');
     });
 });
 
@@ -1733,9 +1466,9 @@ describe('PetPromptBuilder', () => {
     });
 });
 
-// ========== Test: buildEnhancedContext timestamp formatting ==========
+// ========== Test: buildEnhancedContext (Removed in keyframe-only mode) ==========
 
-describe('buildEnhancedContext timestamp formatting', () => {
+describe('buildEnhancedContext removed in keyframe-only mode', () => {
     let EnhancementOrchestrator;
 
     beforeEach(() => {
@@ -1744,46 +1477,8 @@ describe('buildEnhancedContext timestamp formatting', () => {
         EnhancementOrchestrator = global.window.EnhancementOrchestrator;
     });
 
-    it('shows seconds for age < 60s', () => {
+    it('buildEnhancedContext is undefined', () => {
         const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['Test'] = {
-            situation: 'User is coding', timestamp: Date.now() - 30000, focusSec: 20
-        };
-        const ctx = eo.buildEnhancedContext('Test');
-        assert.ok(ctx.includes('30'));
-        assert.ok(!ctx.includes('min'));
-    });
-
-    it('shows minutes for age >= 60s', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['Test'] = {
-            situation: 'User is coding', timestamp: Date.now() - 120000, focusSec: 20
-        };
-        const ctx = eo.buildEnhancedContext('Test');
-        assert.ok(ctx.includes('2'));
-    });
-
-    it('sanitizes secrets in output', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo.vlmExtractor.situationMap['Test'] = {
-            situation: 'User has token sk_live_abcdefghijklmnopqrst visible',
-            timestamp: Date.now(), focusSec: 20
-        };
-        const ctx = eo.buildEnhancedContext('Test');
-        assert.ok(ctx.includes('[***]'));
-        assert.ok(!ctx.includes('abcdefghijklmnopqrst'));
-    });
-
-    it('does not fall back when current title has sufficient focus', () => {
-        const eo = new EnhancementOrchestrator(null);
-        eo._minFocusSeconds = 10;
-        eo.shortPool.set('memory.today', { 'Current': 30 });
-        // No situation for 'Current', but has focus → should NOT fall back
-        eo.vlmExtractor.situationMap['Other'] = {
-            situation: 'Other app', timestamp: Date.now(), focusSec: 60
-        };
-        const ctx = eo.buildEnhancedContext('Current');
-        // No situation for Current and focus >= minFocus → empty (no fallback)
-        assert.strictEqual(ctx, '');
+        assert.strictEqual(typeof eo.buildEnhancedContext, 'undefined');
     });
 });

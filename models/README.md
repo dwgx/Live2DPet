@@ -1,42 +1,53 @@
-# Live2D Models
+# Live2D 模型目录说明
 
-This directory contains Live2D models for the desktop pet.
+这个目录用于存放桌宠可用的模型资源。
 
-## Included Models
+你可以放三类内容：
 
-### Official Live2D Sample Models
-- **Hiyori** - Cute girl character with expressions and motions
-- **Haru** - Elegant character with full animations
-- **Mao** - Adorable character with various expressions
+- Live2D Cubism 模型（`.model3.json` / `.model.json`）
+- 图片文件夹模型（待机图、说话图、表情图）
+- GIF 文件（简单动态形象）
 
-These models are from [Live2D Cubism Web Samples](https://github.com/Live2D/CubismWebSamples) (MIT License).
+## 当前内置示例
 
-### demon
-- Type: Static Image Folder
-- Files: `idle.png`, `speaking.png`
-- Usage: Set model type to "image-folder" in settings
+### 官方 Live2D 示例
+- **Hiyori**：表情和动作比较完整
+- **Haru**：动作丰富，适合做主宠
+- **Mao**：风格偏可爱，表情较多
 
-## How to Use
+以上模型来自 [Live2D Cubism Web Samples](https://github.com/Live2D/CubismWebSamples)（MIT License）。
 
-1. Open Settings in the app
-2. Go to "Model" tab
-3. Select "Live2D Model" type
-4. Click "Browse" and select one of the model folders (e.g., `Hiyori`)
-5. Select the `.model3.json` file (e.g., `Hiyori.model3.json`)
-6. Click "Save" and restart the pet
+### demon（图片模型）
+- 类型：图片文件夹
+- 文件：`idle.png`、`speaking.png`
+- 用法：设置里把模型类型切到“图片文件夹”后导入
 
-## Adding Your Own Models
+## 在应用里怎么导入
 
-### Live2D Cubism Models
-1. Place your `.model3.json` file and assets in a subfolder
-2. In settings, select "Live2D Model" and browse to the folder
-3. Select the `.model3.json` file
+1. 打开应用设置
+2. 进入「模型」标签页
+3. 选择模型类型
+4. 点击浏览并选择模型文件或文件夹
+5. 保存并重启宠物
 
-### Static Images
-1. Create a folder with your images
-2. Name files: `idle.png`, `speaking.png`, etc.
-3. In settings, select "Image Folder" and browse to the folder
+## 自己添加模型的建议
 
-### GIF Animations
-1. Place your `.gif` file in a folder
-2. In settings, select "Static Image/GIF" and browse to the file
+### 添加 Live2D 模型
+1. 新建一个子目录（比如 `MyModel/`）
+2. 把 `.model3.json` 和对应贴图/动作文件都放进去
+3. 在设置中选择这个目录并导入模型文件
+
+### 添加图片文件夹模型
+1. 新建一个目录（比如 `MyImagePet/`）
+2. 放入 `idle.png`（待机）、`speaking.png`（说话）
+3. 如果有表情图，也可以继续添加并在设置中标注用途
+
+### 添加 GIF 模型
+1. 把 `.gif` 文件放到任意目录
+2. 在设置里选择“静态图片/GIF”并导入
+
+## 小提示
+
+- 文件名尽量用英文和数字，少用空格，路径更稳定
+- 模型目录不要放在会频繁自动同步或清理的位置
+- 导入失败时先检查：路径、文件是否完整、`.json` 是否可读

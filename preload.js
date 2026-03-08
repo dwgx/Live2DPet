@@ -101,9 +101,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onPetHoverState: (cb) => ipcRenderer.on('pet-hover-state', (e, hovering) => cb(hovering)),
     onPetHit: (cb) => ipcRenderer.on('pet-hit', (e, data) => cb(data)),
     onModelConfigUpdate: (cb) => ipcRenderer.on('model-config-update', (e, config) => cb(config)),
+    onUserSpeechUpdate: (cb) => ipcRenderer.on('user-speech-update', (e, data) => cb(data)),
+    onQuickMessageReceived: (cb) => ipcRenderer.on('quick-message-received', (e, text) => cb(text)),
 
     // External links
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
+
+    // Quick input window
+    showQuickInput: () => ipcRenderer.invoke('show-quick-input'),
+    closeQuickInput: () => ipcRenderer.invoke('close-quick-input'),
+    sendQuickMessage: (text) => ipcRenderer.invoke('send-quick-message', text),
+    triggerMemorySave: () => ipcRenderer.invoke('trigger-memory-save'),
+    onTriggerMemorySave: (cb) => ipcRenderer.on('trigger-memory-save', () => cb()),
 
     // Enhance system
     saveEnhanceData: (data) => ipcRenderer.invoke('save-enhance-data', data),
@@ -116,7 +125,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         load: () => ipcRenderer.invoke('memory:load'),
         export: () => ipcRenderer.invoke('memory:export'),
         import: (jsonData) => ipcRenderer.invoke('memory:import', jsonData),
-        clear: () => ipcRenderer.invoke('memory:clear')
+        clear: () => ipcRenderer.invoke('memory:clear'),
+        manualSave: (data) => ipcRenderer.invoke('memory:manual-save', data)
     },
 
     // Renderer log forwarding (avoids needing --enable-logging)
