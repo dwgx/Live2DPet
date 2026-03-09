@@ -1,6 +1,6 @@
 /**
  * Simplified AI Chat for Desktop Pet
- * Supports OpenAI-compatible APIs (Grok, Claude proxy, Deepseek, etc.)
+ * Supports OpenAI-compatible APIs (Grok, DeepSeek, and other compatible providers)
  *
  * Features:
  * - OpenAI-compatible API interface
